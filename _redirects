@@ -1,0 +1,2 @@
+# Redirect non-www to www
+https://tenclub.com.au/* https://www.tenclub.com.au/:splat 301
