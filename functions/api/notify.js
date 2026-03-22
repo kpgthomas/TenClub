@@ -1,6 +1,13 @@
 export async function onRequestPost(context) {
+  const origin = context.request.headers.get('Origin') || '';
+  const allowedOrigins = [
+    'https://www.tenclub.com.au',
+    'https://tenclub.com.au'
+  ];
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
   const corsHeaders = {
-    'Access-Control-Allow-Origin': 'https://www.tenclub.com.au',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
@@ -24,10 +31,9 @@ export async function onRequestPost(context) {
       );
     }
 
-    // HubSpot API: Create or update a contact by email
-    // Uses the upsert endpoint — creates if new, updates if the email already exists
+    // HubSpot API: Create a contact
     const hubspotResponse = await fetch(
-      `https://api.hubapi.com/crm/v3/objects/contacts`,
+      'https://api.hubapi.com/crm/v3/objects/contacts',
       {
         method: 'POST',
         headers: {
@@ -38,56 +44,24 @@ export async function onRequestPost(context) {
           properties: {
             email: email,
             lifecyclestage: 'lead',
-            hs_lead_status: 'Community Waiting List',
-            tenclub_source: 'coming-soon-page'
+            hs_lead_status: 'Community Waiting List'
           }
         }),
       }
     );
 
-    // If 409 Conflict, the contact already exists — update them instead
+    // If 409 Conflict, the contact already exists — that's fine, treat as success
     if (hubspotResponse.status === 409) {
-      const conflictBody = await hubspotResponse.json();
-      const existingId = conflictBody?.message?.match(/Existing ID: (\d+)/)?.[1];
-
-      if (existingId) {
-        const updateResponse = await fetch(
-          `https://api.hubapi.com/crm/v3/objects/contacts/${existingId}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${HUBSPOT_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              properties: {
-                tenclub_source: 'coming-soon-page'
-              }
-            }),
-          }
-        );
-
-        if (!updateResponse.ok) {
-          const errBody = await updateResponse.text();
-          console.error('HubSpot update error:', updateResponse.status, errBody);
-          return new Response(
-            JSON.stringify({ error: 'Failed to register. Please try again.' }),
-            { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-          );
-        }
-
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-        );
-      }
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
     }
 
     if (!hubspotResponse.ok) {
       const errBody = await hubspotResponse.text();
-      console.error('HubSpot API error:', hubspotResponse.status, errBody);
       return new Response(
-        JSON.stringify({ error: 'Failed to register. Please try again.' }),
+        JSON.stringify({ error: 'Failed to register. Please try again.', detail: errBody }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
@@ -98,20 +72,26 @@ export async function onRequestPost(context) {
     );
 
   } catch (err) {
-    console.error('Function error:', err);
     return new Response(
-      JSON.stringify({ error: 'Something went wrong. Please try again.' }),
+      JSON.stringify({ error: 'Something went wrong. Please try again.', detail: err.message }),
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 }
 
 // Handle CORS preflight
-export async function onRequestOptions() {
+export async function onRequestOptions(context) {
+  const origin = context.request.headers.get('Origin') || '';
+  const allowedOrigins = [
+    'https://www.tenclub.com.au',
+    'https://tenclub.com.au'
+  ];
+  const corsOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
   return new Response(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': 'https://www.tenclub.com.au',
+      'Access-Control-Allow-Origin': corsOrigin,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
       'Access-Control-Max-Age': '86400',
