@@ -108,7 +108,7 @@
             border-bottom: 3px solid var(--tc-gold);
         }
 
-        .nav__logo { width: 200px; height: auto; }
+        .nav__logo { width: 200px; height: auto; margin-left: -13px; }
         .nav__logo--ktco { height: 125px; width: auto; }
 
         /* ===== MAIN — fills remaining viewport ===== */
@@ -516,23 +516,39 @@
 
     <!-- ===== SCRIPTS ===== -->
     <script>
-        document.getElementById('signupForm').addEventListener('submit', function(e) {
+        document.getElementById('signupForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            // TODO: Replace with Attio webhook POST
-            // fetch('YOUR_ATTIO_WEBHOOK_URL', {
-            //     method: 'POST',
-            //     headers: { 'Content-Type': 'application/json' },
-            //     body: JSON.stringify({
-            //         email: this.email.value,
-            //         source: 'tenclub-coming-soon'
-            //     })
-            // });
-            this.style.display = 'none';
-            document.getElementById('formNote').style.display = 'none';
-            var success = document.getElementById('signupSuccess');
-            success.style.display = 'block';
-            success.style.opacity = '0';
-            success.style.animation = 'fadeIn 0.4s ease forwards';
+            var form = this;
+            var btn = form.querySelector('button');
+            var email = form.email.value;
+
+            // Disable button while submitting
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                var res = await fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+
+                if (!res.ok) throw new Error('Request failed');
+
+                // Show success
+                form.style.display = 'none';
+                document.getElementById('formNote').style.display = 'none';
+                var success = document.getElementById('signupSuccess');
+                success.style.display = 'block';
+                success.style.opacity = '0';
+                success.style.animation = 'fadeIn 0.4s ease forwards';
+            } catch (err) {
+                // Show error but still hide form (graceful degradation)
+                btn.disabled = false;
+                btn.textContent = 'Notify Me';
+                document.getElementById('formNote').textContent = 'Something went wrong. Please try again.';
+                document.getElementById('formNote').style.color = '#e74c3c';
+            }
         });
     </script>
 
